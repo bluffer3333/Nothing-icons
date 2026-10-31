@@ -1,0 +1,54 @@
+name: APK build
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Projekt ZIP kicsomagolása (ha fel van töltve)
+        run: |
+          if [ -f NothingIkonok.zip ]; then
+            unzip -o -q NothingIkonok.zip -d _src
+            cp -r _src/NothingIkonok/. .
+          fi
+
+      - name: Ikon ZIP áthelyezése (ha a repó gyökerébe került)
+        run: |
+          shopt -s nullglob
+          files=(ikonok*.zip)
+          if [ ${#files[@]} -gt 0 ]; then
+            newest=$(for f in "${files[@]}"; do echo "$(git log -1 --format=%ct -- "$f") $f"; done | sort -n | tail -1 | cut -d' ' -f2-)
+            mkdir -p iconpack-input
+            rm -f iconpack-input/*.zip
+            cp "$newest" iconpack-input/ikonok.zip
+            echo "Ikon ZIP: $newest"
+          fi
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Ikonok beillesztése a csomagba
+        run: python3 tools/apply_icons.py
+
+      - name: APK-k építése
+        run: gradle --no-daemon :app:assembleRelease :iconpack:assembleRelease
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: APK-k
+          path: |
+            app/build/outputs/apk/release/*.apk
+            iconpack/build/outputs/apk/release/*.apk
