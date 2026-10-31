@@ -1,0 +1,26 @@
+name: APK építése
+on:
+  push:
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Kicsomagolás
+        run: |
+          unzip -q -o "$(ls *.zip | head -1)"
+          ls -la
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: APK építése
+        run: |
+          cd "$(dirname "$(find . -maxdepth 2 -name gradlew | head -1)")"
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+      - uses: actions/upload-artifact@v4
+        with:
+          name: glyph-eggs-apk
+          path: "**/app/build/outputs/apk/debug/*.apk"
